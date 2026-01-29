@@ -81,14 +81,14 @@ def index():
 @app.route('/data-entry', methods=['GET', 'POST'])
 def data_entry():
     if request.method == 'POST':
-        # ---------- REQUIRED FIELDS ----------
+        # ---------- REQUIRED ----------
         name = request.form.get('name', '').strip()
         branch = request.form.get('branch', '').strip()
         semester = request.form.get('semester', '').strip()
         usn = request.form.get('usn', '').strip()
         phone = request.form.get('phone', '').strip()
 
-        # ---------- OPTIONAL FIELDS (FIXED) ----------
+        # ---------- OPTIONAL ----------
         dob = empty_to_none(request.form.get('dob', '').strip())
         mother_name = empty_to_none(request.form.get('mother_name', '').strip())
         father_name = empty_to_none(request.form.get('father_name', '').strip())
@@ -97,7 +97,7 @@ def data_entry():
         blood_group = empty_to_none(request.form.get('blood_group', '').strip())
         gender = empty_to_none(request.form.get('gender', '').strip())
 
-        # ---------- PHOTO ----------
+        # ---------- PHOTO (FIXED) ----------
         photo = request.files.get('photo')
         photo_filename = None
 
@@ -107,8 +107,7 @@ def data_entry():
 
             try:
                 if is_s3_enabled():
-                    photo_filename = upload_to_s3(BytesIO(photo_data), photo_filename)
-
+                    upload_to_s3(BytesIO(photo_data), photo_filename)
                 else:
                     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
                     with open(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename), 'wb') as f:
@@ -142,7 +141,8 @@ def data_entry():
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """, (
                 name, dob, mother_name, father_name, branch, semester,
-                usn, phone, email, photo_filename, sports, blood_group, gender
+                usn, phone, email, photo_filename,
+                sports, blood_group, gender
             ))
 
             conn.commit()
@@ -193,7 +193,7 @@ def edit_student(student_id):
         usn = request.form.get('usn', '').strip()
         phone = request.form.get('phone', '').strip()
 
-        # ---------- OPTIONAL (FIXED) ----------
+        # ---------- OPTIONAL ----------
         dob = empty_to_none(request.form.get('dob', '').strip())
         mother_name = empty_to_none(request.form.get('mother_name', '').strip())
         father_name = empty_to_none(request.form.get('father_name', '').strip())
@@ -202,7 +202,7 @@ def edit_student(student_id):
         blood_group = empty_to_none(request.form.get('blood_group', '').strip())
         gender = empty_to_none(request.form.get('gender', '').strip())
 
-        # ---------- PHOTO ----------
+        # ---------- PHOTO (FIXED) ----------
         photo = request.files.get('photo')
         photo_filename = None
 
@@ -212,8 +212,7 @@ def edit_student(student_id):
 
             try:
                 if is_s3_enabled():
-                    photo_filename = upload_to_s3(BytesIO(photo_data), photo_filename)
-
+                    upload_to_s3(BytesIO(photo_data), photo_filename)
                 else:
                     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
                     with open(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename), 'wb') as f:
@@ -255,9 +254,10 @@ def edit_student(student_id):
                 photo_path=%s, sports=%s, blood_group=%s, gender=%s
                 WHERE id=%s
             """, (
-                name, dob, mother_name, father_name, branch, semester,
-                usn, phone, email, photo_filename,
-                sports, blood_group, gender, student_id
+                name, dob, mother_name, father_name,
+                branch, semester, usn, phone, email,
+                photo_filename, sports, blood_group, gender,
+                student_id
             ))
 
             conn.commit()
