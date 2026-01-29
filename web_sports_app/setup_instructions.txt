@@ -1,0 +1,34 @@
+CLOUD STORAGE SETUP INSTRUCTIONS
+=================================
+
+1. Install required packages:
+   pip install -r requirements.txt
+
+2. Create AWS S3 Bucket:
+   - Go to AWS Console > S3
+   - Create new bucket (e.g., "your-sports-app-photos")
+   - Enable public read access for photos folder
+   - Note your bucket name and region
+
+3. Get AWS Credentials:
+   - Go to AWS Console > IAM
+   - Create new user with S3 permissions
+   - Generate Access Key ID and Secret Access Key
+
+4. Update cloud_storage.py:
+   - Replace 'your_access_key_here' with your AWS Access Key ID
+   - Replace 'your_secret_key_here' with your AWS Secret Access Key  
+   - Replace 'your_bucket_name_here' with your S3 bucket name
+   - Update AWS_REGION if different from 'us-east-1'
+
+5. Test the setup:
+   - Run the app: python app.py
+   - Upload a photo through data entry
+   - Check if photo appears in S3 bucket
+
+FEATURES ADDED:
+- Photos automatically upload to S3 cloud storage
+- Fallback to local storage if S3 fails
+- All existing functionality preserved
+- Photos accessible via cloud URLs
+- No changes needed to database or other templates

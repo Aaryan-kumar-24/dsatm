@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Generate Report - Sports Staff Data Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='dark-theme.css') }}" rel="stylesheet">
+    <style>
+        body { background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%); min-height: 100vh; }
+        .navbar { box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .container { background: rgba(255,255,255,0.95); border-radius: 20px; padding: 30px; margin-top: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .card { border: none; border-radius: 15px; box-shadow: 0 8px 25px rgba(0,0,0,0.1); transition: transform 0.3s; }
+        .card:hover { transform: translateY(-5px); }
+        .btn { border-radius: 25px; }
+        .form-select { border-radius: 10px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark" style="background: linear-gradient(45deg, #5e72e4, #825ee4);">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('home') }}">Sports Staff Management</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('home') }}">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('data_entry') }}">Data Entry</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('data_view') }}">Data Review</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('data_edit') }}">Data Edit</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('data_select') }}">Data Select</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="{{ url_for('report') }}">Print the Data</a></li>
+                    <li class="nav-item"><button class="btn btn-outline-light btn-sm ms-2" onclick="toggleTheme()"><i class="fas fa-moon" id="theme-icon"></i></button></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="text-center mb-4">
+            <i class="fas fa-chart-bar fa-3x text-danger mb-3"></i>
+            <h2 class="text-danger">Generate Reports</h2>
+            <p class="text-muted">Choose your preferred report generation method</p>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-file-earmark-text" style="font-size: 3rem; color: #0d6efd;"></i>
+                        <h5 class="card-title mt-3">Select Students for Report</h5>
+                        <p class="card-text">Choose specific students to include in your report. You can select multiple students and generate a customized report.</p>
+                        <a href="{{ url_for('data_select') }}" class="btn btn-primary">Select Students</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-file-earmark-spreadsheet" style="font-size: 3rem; color: #198754;"></i>
+                        <h5 class="card-title mt-3">Generate All Students Report</h5>
+                        <p class="card-text">Generate a comprehensive report containing all student records in the database.</p>
+                        <form method="POST" action="{{ url_for('generate_all_report') }}">
+                            <div class="mb-3">
+                                <label class="form-label">Select Format:</label>
+                                <select name="report_format" class="form-select">
+                                    <option value="vtu_eligibility">VTU Eligibility Certificate</option>
+                                    <option value="hod_bonafide">HOD Bonafide Certificate</option>
+                                    <option value="vtu_bonafide">VTU Bonafide Certificate</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-success">Generate Report</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Report Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <h6>What's included in the report:</h6>
+                        <ul>
+                            <li>Student Name</li>
+                            <li>USN (University Seat Number)</li>
+                            <li>Date of Birth</li>
+                            <li>Mother's Name</li>
+                            <li>Father's Name</li>
+                            <li>Branch & Semester</li>
+                            <li>Phone Number</li>
+                            <li>Email Address</li>
+                            <li>Sports Activities</li>
+                        </ul>
+                        
+                        <h6 class="mt-3">Report Format:</h6>
+                        <p>Reports are generated in Microsoft Word (.docx) format and will be automatically downloaded to your device.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4">
+            <a href="{{ url_for('home') }}" class="btn btn-secondary btn-lg"><i class="fas fa-home me-2"></i>Back to Home</a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='theme.js') }}"></script>
+</body>
+</html>
