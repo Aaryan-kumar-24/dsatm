@@ -12,6 +12,34 @@ from web_sports_app.db import get_db_connection
 from web_sports_app.cloud_storage import upload_to_s3
 
 import psycopg2
+
+def init_db():
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS students (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        dob TEXT,
+        mother_name TEXT,
+        father_name TEXT,
+        branch TEXT,
+        semester TEXT,
+        usn VARCHAR(10) UNIQUE,
+        phone VARCHAR(10),
+        email TEXT,
+        photo_path TEXT,
+        sports TEXT,
+        blood_group TEXT,
+        gender TEXT
+    )
+    """)
+
+    conn.commit()
+    conn.close()
+
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dsatm_super_secret_2026")
 init_db()
@@ -39,32 +67,6 @@ def get_photo_url(filename):
             return url_for('static', filename='uploads/' + filename)
     return None
 
-
-def init_db():
-    conn = get_db_connection()
-    cur = conn.cursor()
-
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS students (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        dob TEXT,
-        mother_name TEXT,
-        father_name TEXT,
-        branch TEXT,
-        semester TEXT,
-        usn VARCHAR(10) UNIQUE,
-        phone VARCHAR(10),
-        email TEXT,
-        photo_path TEXT,
-        sports TEXT,
-        blood_group TEXT,
-        gender TEXT
-    )
-    """)
-
-    conn.commit()
-    conn.close()
 
 @app.route('/')
 def home():
