@@ -77,6 +77,7 @@ def index():
     return redirect(url_for('home'))
 
 @app.route('/data-entry', methods=['GET', 'POST'])
+@app.route('/data-entry', methods=['GET', 'POST'])
 def data_entry():
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
@@ -92,52 +93,68 @@ def data_entry():
         blood_group = request.form.get('blood_group', '').strip()
         gender = request.form.get('gender', '').strip()
 
+        # ---------- PHOTO HANDLING (SAFE) ----------
         photo = request.files.get('photo')
         photo_filename = None
-        if photo and photo.filename != '':
+
+        if photo and photo.filename:
             photo_filename = secure_filename(photo.filename)
-            # Read file data once
             photo_data = photo.read()
-            
-            # Try S3 upload first
-            from io import BytesIO
-            s3_file = BytesIO(photo_data)
-            s3_url = upload_to_s3(s3_file, photo_filename)
-            
+
+            s3_url = None
+            try:
+                if is_s3_enabled():
+                    s3_url = upload_to_s3(BytesIO(photo_data), photo_filename)
+            except Exception as e:
+                print("S3 upload failed:", e)
+
             if not s3_url:
-                # Fallback to local storage
+                os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
                 with open(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename), 'wb') as f:
                     f.write(photo_data)
 
+        # ---------- VALIDATION ----------
         if not name:
             flash('Name is required.', 'error')
             return redirect(request.url)
+
         if len(usn) != 10:
             flash('USN must be exactly 10 characters.', 'error')
             return redirect(request.url)
-        if not (phone.isdigit() and len(phone) == 10):
-            flash('Phone number must be numeric and exactly 10 digits.', 'error')
+
+        if not phone.isdigit() or len(phone) != 10:
+            flash('Phone number must be exactly 10 digits.', 'error')
             return redirect(request.url)
 
+        # ---------- DATABASE ----------
         try:
             conn = get_db_connection()
-            c = conn.cursor()
+            cur = conn.cursor()
 
-            c.execute('''
-                INSERT INTO students (name, dob, mother_name, father_name, branch, semester, usn, phone, email, photo_path, sports, blood_group, gender)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            cur.execute("""
+                INSERT INTO students
+                (name, dob, mother_name, father_name, branch, semester, usn, phone, email, photo_path, sports, blood_group, gender)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            """, (
+                name, dob, mother_name, father_name, branch, semester,
+                usn, phone, email, photo_filename, sports, blood_group, gender
+            ))
 
-            ''', (name, dob, mother_name, father_name, branch, semester, usn, phone, email, photo_filename, sports, blood_group, gender))
             conn.commit()
             conn.close()
             flash('Student saved successfully.', 'success')
             return redirect(url_for('data_entry'))
+
         except psycopg2.IntegrityError:
             conn.rollback()
             conn.close()
-            flash('USN must be unique. A student with this USN already exists.', 'error')
+            flash('USN already exists.', 'error')
             return redirect(request.url)
 
+        except Exception as e:
+            print("DB error:", e)
+            flash('Something went wrong. Please try again.', 'error')
+            return redirect(request.url)
 
     return render_template('data_entry.html')
 
@@ -162,6 +179,7 @@ def data_edit():
     return render_template('data_edit.html', students=students)
 
 @app.route('/edit-student/<int:student_id>', methods=['GET', 'POST'])
+@app.route('/edit-student/<int:student_id>', methods=['GET', 'POST'])
 def edit_student(student_id):
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
@@ -177,71 +195,91 @@ def edit_student(student_id):
         blood_group = request.form.get('blood_group', '').strip()
         gender = request.form.get('gender', '').strip()
 
+        # ---------- PHOTO HANDLING ----------
         photo = request.files.get('photo')
         photo_filename = None
-        if photo and photo.filename != '':
+
+        if photo and photo.filename:
             photo_filename = secure_filename(photo.filename)
-            # Read file data once
             photo_data = photo.read()
-            
-            # Try S3 upload first
-            from io import BytesIO
-            s3_file = BytesIO(photo_data)
-            s3_url = upload_to_s3(s3_file, photo_filename)
-            
+
+            s3_url = None
+            try:
+                if is_s3_enabled():
+                    s3_url = upload_to_s3(BytesIO(photo_data), photo_filename)
+            except Exception as e:
+                print("S3 upload failed:", e)
+
             if not s3_url:
-                # Fallback to local storage
+                os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
                 with open(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename), 'wb') as f:
                     f.write(photo_data)
         else:
             conn = get_db_connection()
-            c = conn.cursor()
-
-            c.execute('SELECT photo_path FROM students WHERE id = %s', (student_id,))
-            result = c.fetchone()
+            cur = conn.cursor()
+            cur.execute('SELECT photo_path FROM students WHERE id=%s', (student_id,))
+            row = cur.fetchone()
             conn.close()
-            if result:
-                photo_filename = result[0]
+            if row:
+                photo_filename = row[0]
 
+        # ---------- VALIDATION ----------
         if not name:
             flash('Name is required.', 'error')
             return redirect(request.url)
+
         if len(usn) != 10:
             flash('USN must be exactly 10 characters.', 'error')
             return redirect(request.url)
-        if not (phone.isdigit() and len(phone) == 10):
-            flash('Phone number must be numeric and exactly 10 digits.', 'error')
+
+        if not phone.isdigit() or len(phone) != 10:
+            flash('Phone number must be exactly 10 digits.', 'error')
             return redirect(request.url)
 
+        # ---------- DATABASE ----------
         try:
             conn = get_db_connection()
-            c = conn.cursor()
+            cur = conn.cursor()
 
-            c.execute('''
-                UPDATE students SET name=%s, dob=%s, mother_name=%s, father_name=%s, branch=%s, semester=%s, usn=%s, phone=%s, email=%s, photo_path=%s, sports=%s, blood_group=%s, gender=%s
+            cur.execute("""
+                UPDATE students SET
+                name=%s, dob=%s, mother_name=%s, father_name=%s,
+                branch=%s, semester=%s, usn=%s, phone=%s, email=%s,
+                photo_path=%s, sports=%s, blood_group=%s, gender=%s
                 WHERE id=%s
-            ''', (name, dob, mother_name, father_name, branch, semester, usn, phone, email, photo_filename, sports, blood_group, gender, student_id))
+            """, (
+                name, dob, mother_name, father_name, branch, semester,
+                usn, phone, email, photo_filename, sports,
+                blood_group, gender, student_id
+            ))
+
             conn.commit()
             conn.close()
             flash('Student updated successfully.', 'success')
             return redirect(url_for('data_edit'))
+
         except psycopg2.IntegrityError:
             conn.rollback()
             conn.close()
-            flash('USN must be unique. A student with this USN already exists.', 'error')
+            flash('USN already exists.', 'error')
             return redirect(request.url)
 
-    conn = get_db_connection()
-    c = conn.cursor()
+        except Exception as e:
+            print("DB error:", e)
+            flash('Something went wrong. Please try again.', 'error')
+            return redirect(request.url)
 
-    c.execute('SELECT * FROM students WHERE id = %s', (student_id,))
-    student = c.fetchone()
+    # ---------- GET ----------
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute('SELECT * FROM students WHERE id=%s', (student_id,))
+    student = cur.fetchone()
     conn.close()
-    
+
     if not student:
         flash('Student not found.', 'error')
         return redirect(url_for('data_edit'))
-    
+
     return render_template('edit_student.html', student=student)
 
 @app.route('/delete-student/<int:student_id>', methods=['POST'])
