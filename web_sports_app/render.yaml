@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: sports-admin-app
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn web_sports_app.app:app

@@ -2,3 +2,5 @@ Flask==2.3.3
 python-docx==0.8.11
 Werkzeug==2.3.7
 boto3==1.28.85
+psycopg2-binary
+gunicorn

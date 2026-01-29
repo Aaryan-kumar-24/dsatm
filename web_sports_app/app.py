@@ -1,6 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, send_file, flash, jsonify, session
 import os
-import sqlite3
 from werkzeug.utils import secure_filename
 from docx import Document
 from docx.shared import Inches, RGBColor
@@ -9,9 +8,11 @@ from io import BytesIO
 import tempfile
 import shutil
 from cloud_storage import upload_to_s3, get_s3_url
-
+from db import get_db_connection
+import psycopg2
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'
+app.secret_key = os.environ.get("SECRET_KEY", "dev_secret")
+
 
 @app.context_processor
 def utility_processor():
@@ -25,7 +26,6 @@ for folder in [UPLOAD_FOLDER, TEMPLATE_FOLDER]:
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['TEMPLATE_FOLDER'] = TEMPLATE_FOLDER
 
-DB_NAME = 'students.db'
 
 def get_photo_url(filename):
     if filename:
@@ -38,40 +38,28 @@ def get_photo_url(filename):
     return None
 
 def init_db():
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS students (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            dob TEXT,
-            mother_name TEXT,
-            father_name TEXT,
-            branch TEXT,
-            semester TEXT,
-            usn TEXT UNIQUE,
-            phone TEXT,
-            email TEXT,
-            photo_path TEXT,
-            sports TEXT
-        )
-    ''')
-    try:
-        c.execute('ALTER TABLE students ADD COLUMN blood_group TEXT')
-    except:
-        pass
-    try:
-        c.execute('ALTER TABLE students ADD COLUMN gender TEXT')
-    except:
-        pass
-    try:
-        c.execute('ALTER TABLE students ADD COLUMN branch TEXT')
-    except:
-        pass
-    try:
-        c.execute('ALTER TABLE students ADD COLUMN semester TEXT')
-    except:
-        pass
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS students (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        dob TEXT,
+        mother_name TEXT,
+        father_name TEXT,
+        branch TEXT,
+        semester TEXT,
+        usn VARCHAR(10) UNIQUE,
+        phone VARCHAR(10),
+        email TEXT,
+        photo_path TEXT,
+        sports TEXT,
+        blood_group TEXT,
+        gender TEXT
+    )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -127,26 +115,32 @@ def data_entry():
             return redirect(request.url)
 
         try:
-            conn = sqlite3.connect(DB_NAME)
+            conn = get_db_connection()
             c = conn.cursor()
+
             c.execute('''
                 INSERT INTO students (name, dob, mother_name, father_name, branch, semester, usn, phone, email, photo_path, sports, blood_group, gender)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+
             ''', (name, dob, mother_name, father_name, branch, semester, usn, phone, email, photo_filename, sports, blood_group, gender))
             conn.commit()
             conn.close()
             flash('Student saved successfully.', 'success')
             return redirect(url_for('data_entry'))
-        except sqlite3.IntegrityError:
+        except psycopg2.IntegrityError:
+            conn.rollback()
+            conn.close()
             flash('USN must be unique. A student with this USN already exists.', 'error')
             return redirect(request.url)
+
 
     return render_template('data_entry.html')
 
 @app.route('/data-view')
 def data_view():
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_db_connection()
     c = conn.cursor()
+
     c.execute('SELECT * FROM students ORDER BY id DESC')
     students = c.fetchall()
     conn.close()
@@ -154,8 +148,9 @@ def data_view():
 
 @app.route('/data-edit')
 def data_edit():
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_db_connection()
     c = conn.cursor()
+
     c.execute('SELECT id, name, usn, phone, email FROM students ORDER BY id DESC')
     students = c.fetchall()
     conn.close()
@@ -194,9 +189,10 @@ def edit_student(student_id):
                 with open(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename), 'wb') as f:
                     f.write(photo_data)
         else:
-            conn = sqlite3.connect(DB_NAME)
+            conn = get_db_connection()
             c = conn.cursor()
-            c.execute('SELECT photo_path FROM students WHERE id = ?', (student_id,))
+
+            c.execute('SELECT photo_path FROM students WHERE id = %s', (student_id,))
             result = c.fetchone()
             conn.close()
             if result:
@@ -213,23 +209,27 @@ def edit_student(student_id):
             return redirect(request.url)
 
         try:
-            conn = sqlite3.connect(DB_NAME)
+            conn = get_db_connection()
             c = conn.cursor()
+
             c.execute('''
-                UPDATE students SET name=?, dob=?, mother_name=?, father_name=?, branch=?, semester=?, usn=?, phone=?, email=?, photo_path=?, sports=?, blood_group=?, gender=?
-                WHERE id=?
+                UPDATE students SET name=%s, dob=%s, mother_name=%s, father_name=%s, branch=%s, semester=%s, usn=%s, phone=%s, email=%s, photo_path=%s, sports=%s, blood_group=%s, gender=%s
+                WHERE id=%s
             ''', (name, dob, mother_name, father_name, branch, semester, usn, phone, email, photo_filename, sports, blood_group, gender, student_id))
             conn.commit()
             conn.close()
             flash('Student updated successfully.', 'success')
             return redirect(url_for('data_edit'))
-        except sqlite3.IntegrityError:
+        except psycopg2.IntegrityError:
+            conn.rollback()
+            conn.close()
             flash('USN must be unique. A student with this USN already exists.', 'error')
             return redirect(request.url)
-    
-    conn = sqlite3.connect(DB_NAME)
+
+    conn = get_db_connection()
     c = conn.cursor()
-    c.execute('SELECT * FROM students WHERE id = ?', (student_id,))
+
+    c.execute('SELECT * FROM students WHERE id = %s', (student_id,))
     student = c.fetchone()
     conn.close()
     
@@ -241,9 +241,10 @@ def edit_student(student_id):
 
 @app.route('/delete-student/<int:student_id>', methods=['POST'])
 def delete_student(student_id):
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_db_connection()
     c = conn.cursor()
-    c.execute('DELETE FROM students WHERE id = ?', (student_id,))
+
+    c.execute('DELETE FROM students WHERE id = %s', (student_id,))
     conn.commit()
     conn.close()
     flash('Student deleted successfully.', 'success')
@@ -255,11 +256,12 @@ def data_select():
     if request.method == 'POST':
         search_name = request.form.get('search_name', '').strip()
     
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_db_connection()
     c = conn.cursor()
+
     
     if search_name:
-        c.execute('SELECT id, name, usn, phone, email, sports FROM students WHERE name LIKE ? ORDER BY name', (f'%{search_name}%',))
+        c.execute('SELECT id, name, usn, phone, email, sports FROM students WHERE name LIKE %s ORDER BY name', (f'%{search_name}%',))
     else:
         c.execute('SELECT id, name, usn, phone, email, sports FROM students ORDER BY name')
     
@@ -285,8 +287,9 @@ def template_upload():
         else:
             flash('Please upload a valid .docx file.', 'error')
     
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_db_connection()
     c = conn.cursor()
+
     c.execute('SELECT id, name, usn FROM students ORDER BY name')
     students = c.fetchall()
     conn.close()
@@ -302,9 +305,12 @@ def generate_report():
         flash('Please select at least one student.', 'error')
         return redirect(url_for('data_select'))
     
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_db_connection()
     c = conn.cursor()
-    placeholders = ','.join('?' for _ in selected_ids)
+
+    placeholders = ','.join(['%s'] * len(selected_ids))
+
+
     query = f'SELECT * FROM students WHERE id IN ({placeholders})'
     c.execute(query, selected_ids)
     students = c.fetchall()
@@ -495,9 +501,11 @@ def edit_report():
         flash('Please select at least one student.', 'error')
         return redirect(url_for('data_select'))
     
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_db_connection()
     c = conn.cursor()
-    placeholders = ','.join('?' for _ in selected_ids)
+
+    placeholders = ','.join(['%s'] * len(selected_ids))
+
     query = f'SELECT * FROM students WHERE id IN ({placeholders})'
     c.execute(query, selected_ids)
     students = c.fetchall()
@@ -524,11 +532,13 @@ def generate_edited_report():
     report_title = request.form.get('report_title')
     report_content = request.form.get('report_content')
     
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_db_connection()
     c = conn.cursor()
-    placeholders = ','.join('?' for _ in selected_ids)
+
+    placeholders = ','.join(['%s'] * len(selected_ids))
     query = f'SELECT * FROM students WHERE id IN ({placeholders})'
     c.execute(query, selected_ids)
+
     students = c.fetchall()
     conn.close()
     
@@ -555,8 +565,9 @@ def generate_edited_report():
 def generate_all_report():
     report_format = request.form.get('report_format', 'detailed')
     
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_db_connection()
     c = conn.cursor()
+
     c.execute('SELECT * FROM students ORDER BY name')
     students = c.fetchall()
     conn.close()
