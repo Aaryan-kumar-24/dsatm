@@ -7,7 +7,8 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
 import tempfile
 import shutil
-from cloud_storage import upload_to_s3, get_s3_url
+from web_sports_app.cloud_storage import is_s3_enabled, get_s3_url
+
 from db import get_db_connection
 import psycopg2
 app = Flask(__name__)
@@ -29,13 +30,13 @@ app.config['TEMPLATE_FOLDER'] = TEMPLATE_FOLDER
 
 def get_photo_url(filename):
     if filename:
-        from cloud_storage import is_s3_enabled, get_s3_url
-        # Check if S3 is available and use it, otherwise use local
+        from web_sports_app.cloud_storage import is_s3_enabled, get_s3_url
         if is_s3_enabled():
             return get_s3_url(filename)
         else:
             return url_for('static', filename='uploads/' + filename)
     return None
+
 
 def init_db():
     conn = get_db_connection()
