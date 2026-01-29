@@ -1,13 +1,12 @@
 import os
-import sqlite3
 import psycopg2
 
 def get_db_connection():
     db_url = os.environ.get("DATABASE_URL")
 
-    if db_url:
-        # Production (Render → PostgreSQL)
-        return psycopg2.connect(db_url)
-    else:
-        # Local (SQLite)
-        return sqlite3.connect("students.db")
+    if not db_url:
+        raise RuntimeError(
+            "DATABASE_URL not set. This app is designed to run on Render only."
+        )
+
+    return psycopg2.connect(db_url)
