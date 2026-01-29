@@ -77,7 +77,6 @@ def index():
     return redirect(url_for('home'))
 
 @app.route('/data-entry', methods=['GET', 'POST'])
-@app.route('/data-entry', methods=['GET', 'POST'])
 def data_entry():
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
@@ -178,7 +177,6 @@ def data_edit():
     conn.close()
     return render_template('data_edit.html', students=students)
 
-@app.route('/edit-student/<int:student_id>', methods=['GET', 'POST'])
 @app.route('/edit-student/<int:student_id>', methods=['GET', 'POST'])
 def edit_student(student_id):
     if request.method == 'POST':
