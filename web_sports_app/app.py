@@ -107,7 +107,8 @@ def data_entry():
 
             try:
                 if is_s3_enabled():
-                    upload_to_s3(BytesIO(photo_data), photo_filename)
+                    photo_filename = upload_to_s3(BytesIO(photo_data), photo_filename)
+
                 else:
                     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
                     with open(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename), 'wb') as f:
@@ -211,7 +212,8 @@ def edit_student(student_id):
 
             try:
                 if is_s3_enabled():
-                    upload_to_s3(BytesIO(photo_data), photo_filename)
+                    photo_filename = upload_to_s3(BytesIO(photo_data), photo_filename)
+
                 else:
                     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
                     with open(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename), 'wb') as f:
