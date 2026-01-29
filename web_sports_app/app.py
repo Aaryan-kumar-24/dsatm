@@ -13,7 +13,7 @@ from web_sports_app.cloud_storage import upload_to_s3
 
 import psycopg2
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "dev_secret")
+app.secret_key = os.environ.get("SECRET_KEY", "dsatm_super_secret_2026")
 
 
 @app.context_processor
