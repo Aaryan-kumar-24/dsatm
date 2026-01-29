@@ -14,6 +14,7 @@ from web_sports_app.cloud_storage import upload_to_s3
 import psycopg2
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dsatm_super_secret_2026")
+init_db()
 
 
 @app.context_processor
@@ -677,7 +678,3 @@ def generate_all_report():
     temp_file.close()
     
     return send_file(temp_file.name, as_attachment=True, download_name=f'complete_{report_format}_report.docx')
-
-if __name__ == '__main__':
-    init_db()
-    app.run(debug=True)
