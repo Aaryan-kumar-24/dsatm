@@ -12,6 +12,8 @@ from web_sports_app.db import get_db_connection
 from web_sports_app.cloud_storage import upload_to_s3
 
 import psycopg2
+def empty_to_none(value):
+    return value if value else None
 
 def init_db():
     conn = get_db_connection()
@@ -79,20 +81,23 @@ def index():
 @app.route('/data-entry', methods=['GET', 'POST'])
 def data_entry():
     if request.method == 'POST':
+        # ---------- REQUIRED FIELDS ----------
         name = request.form.get('name', '').strip()
-        dob = request.form.get('dob', '').strip()
-        mother_name = request.form.get('mother_name', '').strip()
-        father_name = request.form.get('father_name', '').strip()
         branch = request.form.get('branch', '').strip()
         semester = request.form.get('semester', '').strip()
         usn = request.form.get('usn', '').strip()
         phone = request.form.get('phone', '').strip()
-        email = request.form.get('email', '').strip()
-        sports = request.form.get('sports', '').strip()
-        blood_group = request.form.get('blood_group', '').strip()
-        gender = request.form.get('gender', '').strip()
 
-        # ---------- PHOTO HANDLING (SAFE) ----------
+        # ---------- OPTIONAL FIELDS (FIXED) ----------
+        dob = empty_to_none(request.form.get('dob', '').strip())
+        mother_name = empty_to_none(request.form.get('mother_name', '').strip())
+        father_name = empty_to_none(request.form.get('father_name', '').strip())
+        email = empty_to_none(request.form.get('email', '').strip())
+        sports = empty_to_none(request.form.get('sports', '').strip())
+        blood_group = empty_to_none(request.form.get('blood_group', '').strip())
+        gender = empty_to_none(request.form.get('gender', '').strip())
+
+        # ---------- PHOTO ----------
         photo = request.files.get('photo')
         photo_filename = None
 
@@ -100,17 +105,16 @@ def data_entry():
             photo_filename = secure_filename(photo.filename)
             photo_data = photo.read()
 
-            s3_url = None
             try:
                 if is_s3_enabled():
-                    s3_url = upload_to_s3(BytesIO(photo_data), photo_filename)
+                    upload_to_s3(BytesIO(photo_data), photo_filename)
+                else:
+                    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+                    with open(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename), 'wb') as f:
+                        f.write(photo_data)
             except Exception as e:
-                print("S3 upload failed:", e)
-
-            if not s3_url:
-                os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-                with open(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename), 'wb') as f:
-                    f.write(photo_data)
+                print("Photo upload error:", e)
+                photo_filename = None
 
         # ---------- VALIDATION ----------
         if not name:
@@ -132,7 +136,8 @@ def data_entry():
 
             cur.execute("""
                 INSERT INTO students
-                (name, dob, mother_name, father_name, branch, semester, usn, phone, email, photo_path, sports, blood_group, gender)
+                (name, dob, mother_name, father_name, branch, semester,
+                 usn, phone, email, photo_path, sports, blood_group, gender)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """, (
                 name, dob, mother_name, father_name, branch, semester,
@@ -151,8 +156,8 @@ def data_entry():
             return redirect(request.url)
 
         except Exception as e:
-            print("DB error:", e)
-            flash('Something went wrong. Please try again.', 'error')
+            print("DB ERROR:", e)
+            flash('Database error. Check logs.', 'error')
             return redirect(request.url)
 
     return render_template('data_entry.html')
@@ -180,20 +185,23 @@ def data_edit():
 @app.route('/edit-student/<int:student_id>', methods=['GET', 'POST'])
 def edit_student(student_id):
     if request.method == 'POST':
+        # ---------- REQUIRED ----------
         name = request.form.get('name', '').strip()
-        dob = request.form.get('dob', '').strip()
-        mother_name = request.form.get('mother_name', '').strip()
-        father_name = request.form.get('father_name', '').strip()
         branch = request.form.get('branch', '').strip()
         semester = request.form.get('semester', '').strip()
         usn = request.form.get('usn', '').strip()
         phone = request.form.get('phone', '').strip()
-        email = request.form.get('email', '').strip()
-        sports = request.form.get('sports', '').strip()
-        blood_group = request.form.get('blood_group', '').strip()
-        gender = request.form.get('gender', '').strip()
 
-        # ---------- PHOTO HANDLING ----------
+        # ---------- OPTIONAL (FIXED) ----------
+        dob = empty_to_none(request.form.get('dob', '').strip())
+        mother_name = empty_to_none(request.form.get('mother_name', '').strip())
+        father_name = empty_to_none(request.form.get('father_name', '').strip())
+        email = empty_to_none(request.form.get('email', '').strip())
+        sports = empty_to_none(request.form.get('sports', '').strip())
+        blood_group = empty_to_none(request.form.get('blood_group', '').strip())
+        gender = empty_to_none(request.form.get('gender', '').strip())
+
+        # ---------- PHOTO ----------
         photo = request.files.get('photo')
         photo_filename = None
 
@@ -201,21 +209,20 @@ def edit_student(student_id):
             photo_filename = secure_filename(photo.filename)
             photo_data = photo.read()
 
-            s3_url = None
             try:
                 if is_s3_enabled():
-                    s3_url = upload_to_s3(BytesIO(photo_data), photo_filename)
+                    upload_to_s3(BytesIO(photo_data), photo_filename)
+                else:
+                    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+                    with open(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename), 'wb') as f:
+                        f.write(photo_data)
             except Exception as e:
-                print("S3 upload failed:", e)
-
-            if not s3_url:
-                os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-                with open(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename), 'wb') as f:
-                    f.write(photo_data)
+                print("Photo upload error:", e)
+                photo_filename = None
         else:
             conn = get_db_connection()
             cur = conn.cursor()
-            cur.execute('SELECT photo_path FROM students WHERE id=%s', (student_id,))
+            cur.execute("SELECT photo_path FROM students WHERE id=%s", (student_id,))
             row = cur.fetchone()
             conn.close()
             if row:
@@ -247,8 +254,8 @@ def edit_student(student_id):
                 WHERE id=%s
             """, (
                 name, dob, mother_name, father_name, branch, semester,
-                usn, phone, email, photo_filename, sports,
-                blood_group, gender, student_id
+                usn, phone, email, photo_filename,
+                sports, blood_group, gender, student_id
             ))
 
             conn.commit()
@@ -263,14 +270,14 @@ def edit_student(student_id):
             return redirect(request.url)
 
         except Exception as e:
-            print("DB error:", e)
-            flash('Something went wrong. Please try again.', 'error')
+            print("DB ERROR:", e)
+            flash('Database error. Check logs.', 'error')
             return redirect(request.url)
 
     # ---------- GET ----------
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute('SELECT * FROM students WHERE id=%s', (student_id,))
+    cur.execute("SELECT * FROM students WHERE id=%s", (student_id,))
     student = cur.fetchone()
     conn.close()
 
