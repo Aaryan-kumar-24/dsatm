@@ -8,8 +8,9 @@ from io import BytesIO
 import tempfile
 import shutil
 from web_sports_app.cloud_storage import is_s3_enabled, get_s3_url
+from web_sports_app.db import get_db_connection
+from web_sports_app.cloud_storage import upload_to_s3
 
-from db import get_db_connection
 import psycopg2
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev_secret")
