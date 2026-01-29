@@ -44,7 +44,11 @@ def init_db():
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dsatm_super_secret_2026")
-init_db()
+try:
+    init_db()
+except Exception as e:
+    print("DB init skipped:", e)
+
 
 
 @app.context_processor
@@ -156,10 +160,13 @@ def data_entry():
             flash('USN already exists.', 'error')
             return redirect(request.url)
 
-        except Exception as e:
-            print("DB ERROR:", e)
-            flash('Database error. Check logs.', 'error')
+        except psycopg2.Error as e:
+            conn.rollback()
+            conn.close()
+            print("POSTGRES ERROR:", e)
+            flash(f'Database error: {e.pgerror}', 'error')
             return redirect(request.url)
+
 
     return render_template('data_entry.html')
 
@@ -271,10 +278,13 @@ def edit_student(student_id):
             flash('USN already exists.', 'error')
             return redirect(request.url)
 
-        except Exception as e:
-            print("DB ERROR:", e)
-            flash('Database error. Check logs.', 'error')
-            return redirect(request.url)
+        except psycopg2.Error as e:
+            conn.rollback()
+            conn.close()
+            print("POSTGRES ERROR:", e)
+            flash(f'Database error: {e.pgerror}', 'error')
+        return redirect(request.url)
+
 
     # ---------- GET ----------
     conn = get_db_connection()
@@ -311,7 +321,11 @@ def data_select():
 
     
     if search_name:
-        c.execute('SELECT id, name, usn, phone, email, sports FROM students WHERE name LIKE %s ORDER BY name', (f'%{search_name}%',))
+        c.execute(
+    'SELECT id, name, usn, phone, email, sports FROM students WHERE name ILIKE %s ORDER BY name',
+    (f'%{search_name}%',)
+)
+
     else:
         c.execute('SELECT id, name, usn, phone, email, sports FROM students ORDER BY name')
     
