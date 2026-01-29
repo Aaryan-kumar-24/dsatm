@@ -283,7 +283,7 @@ def edit_student(student_id):
             conn.close()
             print("POSTGRES ERROR:", e)
             flash(f'Database error: {e.pgerror}', 'error')
-        return redirect(request.url)
+            return redirect(request.url)
 
 
     # ---------- GET ----------
